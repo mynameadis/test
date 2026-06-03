@@ -1,0 +1,13 @@
+{
+  "name": "fake-messages",
+  "version": "1.0.0",
+  "description": "Create fake DM conversations with preset messages",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "enmity": "^1.0.0",
+    "typescript": "^4.9.0"
+  }
+}

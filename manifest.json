@@ -1,0 +1,13 @@
+{
+  "name": "Fake Messages",
+  "version": "1.0.0",
+  "description": "Create fake DM conversations with preset messages",
+  "authors": [
+    {
+      "name": "You",
+      "id": "0"
+    }
+  ],
+  "source": "https://github.com/yourusername/fake-messages",
+  "enmityVersion": "^1.0.0"
+}
