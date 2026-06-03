@@ -1,3 +1,5 @@
+function registerPlugin(e){window.enmity.plugins.registerPlugin(e)}
+
 const PRESET_CONVERSATIONS = [
   { sender: "fake", text: "hey whats up" },
   { sender: "you", text: "not much, just chillin" },
@@ -11,32 +13,36 @@ const PRESET_CONVERSATIONS = [
   { sender: "you", text: "peace" }
 ];
 
+const patcher = window.enmity.patcher.create("FakeMessages");
+
+function getModule(...args) {
+  return window.enmity.modules.getByProps(...args);
+}
+
 const FakeMessages = {
   name: "Fake Messages",
   version: "1.0.0",
   description: "Create fake DM conversations with preset messages",
   authors: [{ name: "You", id: "0" }],
   
-  onLoad() {
-    console.warn("[FM] Plugin loaded");
+  onStart() {
+    console.warn("[FM] Plugin started");
     this.patch();
   },
   
-  onUnload() {
-    console.warn("[FM] Plugin unloaded");
+  onStop() {
+    patcher.unpatchAll();
+    console.warn("[FM] Plugin stopped");
   },
   
   patch() {
     try {
-      const { getModule } = require("enmity/metro");
-      const { Patcher } = require("enmity/metro/patcher");
-
-      const MessageActions = getModule(m => m && m.sendMessage);
+      const MessageActions = getModule("sendMessage");
       console.warn("[FM] MessageActions found:", !!MessageActions);
 
       if (!MessageActions) return;
 
-      Patcher.before("FakeMessages", MessageActions, "sendMessage", (thisArg, args) => {
+      patcher.before(MessageActions, "sendMessage", (thisArg, args) => {
         try {
           const msg = args[1];
           if (!msg || !msg.content) return;
@@ -47,15 +53,22 @@ const FakeMessages = {
           const userId = text.slice(9).trim();
           if (!userId || isNaN(userId)) return;
 
-          const UserStore = getModule(m => m && m.getUser && m.getCurrentUser);
-          if (!UserStore) return;
+          const UserStore = getModule("getUser", "getCurrentUser");
+          if (!UserStore) {
+            console.warn("[FM] UserStore not found");
+            return;
+          }
 
           const fakeUser = UserStore.getUser(userId);
           const currentUser = UserStore.getCurrentUser();
 
-          if (!fakeUser || !currentUser) return;
+          if (!fakeUser || !currentUser) {
+            console.warn("[FM] User not found");
+            return;
+          }
 
-          this.makeDM(userId, fakeUser, currentUser, getModule, Patcher);
+          console.warn("[FM] Command detected, creating DM...");
+          this.makeDM(userId, fakeUser, currentUser);
           msg.content = "";
         } catch (e) {
           console.error("[FM] Patch callback error:", e);
@@ -68,18 +81,21 @@ const FakeMessages = {
     }
   },
   
-  makeDM(userId, fakeUser, currentUser, getModule, Patcher) {
+  makeDM(userId, fakeUser, currentUser) {
     try {
-      const DMStore = getModule(m => m && m.getDMFromUserId);
-      const Actions = getModule(m => m && m.openPrivateChannel);
+      const DMStore = getModule("getDMFromUserId");
+      const Actions = getModule("openPrivateChannel");
       
-      let MsgStore = getModule(m => m && m._addMessage);
-      if (!MsgStore) MsgStore = getModule(m => m && m.addMessage);
-      if (!MsgStore) MsgStore = getModule(m => m && m.receiveMessage);
+      let MsgStore = getModule("_addMessage");
+      if (!MsgStore) MsgStore = getModule("addMessage");
+      if (!MsgStore) MsgStore = getModule("receiveMessage");
 
-      console.warn("[FM] Stores found - DM:", !!DMStore, "Actions:", !!Actions, "Msgs:", !!MsgStore);
+      console.warn("[FM] Stores - DM:", !!DMStore, "Actions:", !!Actions, "Msgs:", !!MsgStore);
 
-      if (!DMStore || !Actions) return;
+      if (!DMStore || !Actions) {
+        console.warn("[FM] Missing critical stores");
+        return;
+      }
 
       let dmId = DMStore.getDMFromUserId(userId);
       console.warn("[FM] Initial dmId:", dmId);
@@ -148,13 +164,10 @@ const FakeMessages = {
 
         if (MsgStore._addMessage) {
           MsgStore._addMessage(dmId, fakeMsg);
-          console.warn("[FM] Used _addMessage");
         } else if (MsgStore.addMessage) {
           MsgStore.addMessage(dmId, fakeMsg);
-          console.warn("[FM] Used addMessage");
         } else if (MsgStore.receiveMessage) {
           MsgStore.receiveMessage(dmId, fakeMsg);
-          console.warn("[FM] Used receiveMessage");
         }
 
         count++;
@@ -175,4 +188,4 @@ const FakeMessages = {
   }
 };
 
-module.exports = FakeMessages;
+registerPlugin(FakeMessages);
